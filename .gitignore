@@ -50,3 +50,9 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+#extensions que l'on rajoute comme inutiles
+#Elementos de STM
+Debug/
+.directory
+.metadata
