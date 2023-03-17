@@ -172,7 +172,6 @@ void GPIO_WritePin (GPIO_Handler_t *pPinHandler, uint8_t newState)
 
 
 // Funcion para leer el estado de un pin especifico
-// TIENE UN ERROR QUE HAY QUE RESOLVER
 
 uint32_t GPIO_ReadPin (GPIO_Handler_t *pPinHandler)
 {
@@ -183,8 +182,12 @@ uint32_t GPIO_ReadPin (GPIO_Handler_t *pPinHandler)
 	// del pin especifico
 	pinValue = (pPinHandler -> pGPIOx -> IDR >> pPinHandler -> GPIO_PinConfig.GPIO_PinNumber);
 
-	return pinValue;
+	// Limpiamos pinValue para que solo nos queda el valor del PIN que deseamos leer en la
+	//posicion 1
+	pinValue &= (SET << 0);
 
+	// Retornamos pinValue
+	return pinValue;
 }
 
 

@@ -21,8 +21,8 @@
  * debido manejo y control del periferico GPIOx (funciones del controladror)
 */
 
-#ifndef GPIOXDRIVER_H_
-#define GPIOXDRIVER_H_
+#ifndef INC_GPIOXDRIVER_H_
+#define INC_GPIOXDRIVER_H_
 
 /* Incluyendo este archivo estamos incluyendo tambien el correspondiente al GPIOx */
 #include "stm32f411xx_hal.h"

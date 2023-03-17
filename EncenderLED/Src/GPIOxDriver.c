@@ -88,17 +88,17 @@ void GPIO_Config (GPIO_Handler_t *pGPIOHandler)
 
 	// Antes de cargar el nuevo valor, limpiamos los bits especificos de ese registro (debemos escribir 0b00)
 	// para lo cual aplicamos una mascara y una operacion bitwise AND
-	pGPIOHandler -> pGPIOx -> MODER &= ~(0b11 << 2 * pGPIOHandler -> GPIO_PinConfig.GPIO_PinNumber);
+	pGPIOHandler -> pGPIOx -> MODER &= ~(Ob11 << 2 * pGBIOHandler -> GPIO_PinConfig.GPIO_PinNumber);
 
 	//Cargamos a auxConfig en el registro MODER
 	pGPIOHandler -> pGPIOx-> MODER |= auxConfig;
 
 	//3) Configurando el registro GPIOx_OTYPER
 	// De nuevo, leemos y movemos el valor un numero "PinNumber" de veces
-	auxConfig = (pGPIOHandler -> GPIO_PinConfig.GPIO_PinOPType << pGPIOHandler -> GPIO_PinConfig.GPIO_PinNumber);
+	auxConfig = (pGPIOHandler -> GPIO_PinConfig.GPIO_PinOPType << pGPIOHandler -> GPIO_PinNumber);
 
 	// Limpiamos antes de cargar
-	pGPIOHandler -> pGPIOx -> OTYPER &= ~(SET << pGPIOHandler -> GPIO_PinConfig.GPIO_PinNumber);
+	pGPIOHandler -> PGPIOx -> OTYPER &= ~(SET << pGPIOHandler -> GPIO_PinConfig.GPIO_PinNumber);
 
 	// Cargamos el resultado sobre el resgistro adecuado
 	pGPIOHandler -> pGPIOx -> OTYPER |= auxConfig;
@@ -110,10 +110,10 @@ void GPIO_Config (GPIO_Handler_t *pGPIOHandler)
 	pGPIOHandler -> pGPIOx -> OSPEEDR &= ~(0b11 << 2 * pGPIOHandler -> GPIO_PinConfig.GPIO_PinNumber);
 
 	//Cargamos el resultado sobre el registro adecuado
-	pGPIOHandler -> pGPIOx -> OSPEEDR |= auxConfig ;
+	pGPIOHandler -> pGPIOx -> 0SPEEDR |= auxConfig ;
 
 	//5) Configurando si se desea pull-up, pull-down, o flotante
-	auxConfig = (pGPIOHandler -> GPIO_PinConfig.GPIO_PinPuPdControl << 2* pGPIOHandler -> GPIO_PinConfig.GPIO_PinNumber);
+	auxConfig = (pGPIOHandler -> GPIO_PinConfig.GPIO_PinPuPdControl << 2* pGPIOHandler -> GPIO_PinNumber);
 
 	//Limpiando la posicion antes de cargar la nueva configuracion
 	pGPIOHandler -> pGPIOx -> PUPDR &= ~(0b11 << 2 * pGPIOHandler -> GPIO_PinConfig.GPIO_PinNumber);
@@ -131,10 +131,10 @@ void GPIO_Config (GPIO_Handler_t *pGPIOHandler)
 			auxPosicion = 4 * pGPIOHandler -> GPIO_PinConfig.GPIO_PinNumber ;
 
 			//Limpiamos primero la posicion del registro que deseamos escribir a continuacion
-			pGPIOHandler -> pGPIOx -> AFRL &= ~(0b1111 << auxPosicion);
+			pGPIOHandler -> pGPIOx -> AFRL &= ~(0b1111 << auxPosition);
 
 			// Y escribimos el valor configurado en la posicion seleccionada
-			pGPIOHandler -> pGPIOx -> AFRL |= (pGPIOHandler -> GPIO_PinConfig.GPIO_PinAltFunMode << auxPosicion);
+			pGPIOHandler -> pGPIOx -> AFRL |= (pGPIOHandler -> GPIO_PinConfig.GPIO_PinAltFunMode << auxPosition);
 		}
 
 		else
@@ -143,10 +143,10 @@ void GPIO_Config (GPIO_Handler_t *pGPIOHandler)
 			auxPosicion = 4 * (pGPIOHandler -> GPIO_PinConfig.GPIO_PinNumber - 8);
 
 			//Limpiamos primero la posicion del registro que deseamos escribir a continuacion
-			pGPIOHandler -> pGPIOx -> AFRH &= ~(0b1111 << auxPosicion);
+			pGPIOHandler -> pGPIOx -> AFRH &= ~(0b1111 << auxPosition);
 
 			// Y escribimos el valor configurado en la posicion seleccionada
-			pGPIOHandler -> pGPIOx -> AFRH |= (pGPIOHandler -> GPIO_PinConfig.GPIO_PinAltFunMode << auxPosicion);
+			pGPIOHandler -> pGPIOx -> AFRH |= (pGPIOHandler -> GPIO_PinConfig.GPIO_PinAltFunMode << auxPosition);
 		}
 
 	}
@@ -172,7 +172,6 @@ void GPIO_WritePin (GPIO_Handler_t *pPinHandler, uint8_t newState)
 
 
 // Funcion para leer el estado de un pin especifico
-// TIENE UN ERROR QUE HAY QUE RESOLVER
 
 uint32_t GPIO_ReadPin (GPIO_Handler_t *pPinHandler)
 {

@@ -46,8 +46,8 @@
 
 
 #include <stdint.h>
-#include "stm32f411xx_hal.h"
 
+#include "stm32f411xx_hal.h"
 #include "GPIOxDriver.h"
 
 // Funcion principal del programa
@@ -56,27 +56,46 @@
 int main(void)
 {
 	// Definimos el handler para el PIN que deseamos configurar
-	GPIO_Handler_t handlerUserLedPin = {0};
+	GPIO_Handler_t handlerOnBoardLed = {0};
 
     // Deseamos trabajar con el puerto GPIOA
-	handlerUserLedPin.pGPIOx = GPIOA;
-	handlerUserLedPin.GPIO_PinConfig.GPIO_PinNumber        =PIN_5;
-	handlerUserLedPin.GPIO_PinConfig.GPIO_PinMode          =GPIO_MODE_OUT;
-	handlerUserLedPin.GPIO_PinConfig.GPIO_PinOPType        =GPIO_OTYPE_PUSHPULL;
-	handlerUserLedPin.GPIO_PinConfig.GPIO_PinPuPdControl   =GPIO_PUPDR_NOTHING;
-	handlerUserLedPin.GPIO_PinConfig.GPIO_PinSpeed         =GPIO_OSPEED_MEDIUM;
-	handlerUserLedPin.GPIO_PinConfig.GPIO_PinAltFunMode    =AF0;  //Ninguna funcion
+	handlerOnBoardLed.pGPIOx = GPIOA;
+	handlerOnBoardLed.GPIO_PinConfig.GPIO_PinNumber        =PIN_5;
+	handlerOnBoardLed.GPIO_PinConfig.GPIO_PinMode          =GPIO_MODE_OUT;
+	handlerOnBoardLed.GPIO_PinConfig.GPIO_PinOPType        =GPIO_OTYPE_PUSHPULL;
+	//handlerOnBoardLed.GPIO_PinConfig.GPIO_PinPuPdControl   =GPIO_PUPDR_NOTHING;
+	handlerOnBoardLed.GPIO_PinConfig.GPIO_PinSpeed         =GPIO_OSPEED_FAST;
+	handlerOnBoardLed.GPIO_PinConfig.GPIO_PinAltFunMode    =AF0;  //Ninguna funcion
 
 	// Cargamos la configuracion del PIN especifico
-	GPIO_Config(&handlerUserLedPin);
+	GPIO_Config(&handlerOnBoardLed);
 
 	// Hacemos que el PIN_A5 quede encendido
-	GPIO_WritePin(&handlerUserLedPin, SET);
+	GPIO_WritePin(&handlerOnBoardLed, SET);
+
+	//Configuracion TIMER
+	RCC->APB1ENR|=(1<<0);  // On met un 1 à la position O car c'est à cette position
+			               // mettre un 1 pour activer le timer2
+	//RCC->APB1ENR |= RCC_APB1ENR_TIM2EN; //fais la même chose
+
+	//Il manque la librairie mcu_headers pour utiliser tout ça
+	TIM2->CR1 &= ~(TIM_CR1_DIR);
+	TIM2->PSC =1600;
+	TIM2->CNT=0;
+	TIM2->ARR =250;
+	TIM2-> CR1 |= TIM_CR1_CEN;
+
+
+
 
 	// Este es el ciclo principal, donde se ejecuta todo el programa
 	while(1)
 	{
-		NOP();
+		if (TIM2->SR & TIM_SR_UIF)
+			{
+				GPIO_TooglePin(&handlerOnBoardLed);
+				TIM2->SR &= ~TIM_SR_UIF;
+			}
 	}
 
 }

@@ -1,12 +1,24 @@
-/*
- * stm32f411xx_hal.h
+/**
+ ******************************************************************************
+ * @file           : stm32f411xx_hal.h
+ * @author         : mmalgeri
+ * @brief          :
+ ******************************************************************************
+ * @attention
  *
- *  Created on: Mar 16, 2023
- *      Author: ingfisica
+ * Copyright (c) 2023 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
  */
 
-#ifndef STM32F411XX_HAL_H_
-#define STM32F411XX_HAL_H_
+
+#ifndef INC_STM32F411XX_HAL_H
+#define INC_STM32F411XX_HAL_H_
 
 #include <stdint.h>
 #include <stddef.h>
@@ -26,6 +38,11 @@
 #define FLASH_BASE_ADDR    0x08000000U  // esta es la memoria del programa, 512KB
 #define SRAM_BASE_ADDR     0x20000000U  // esta es la memoria RAM, 128KB
 
+/* NOTA:
+ * Observa que existen unos registros especificos del cortex M4 en la region 0xE0000000U
+ * Los controladores de las interrupciones se encuentran alli, por ejemplo.
+ * Esto se vera a su debido de tiempo
+ */
 
 /* Nota
  * Ahora agregamos la direccion de memoria base para cada uno de los perifericos que posee el micro
@@ -39,12 +56,11 @@
 /*
  * AHBx and APBx Bus peripherals base addresses
  */
+
 #define APB1_BASE_ADDR   0x40000000U
 #define APB2_BASE_ADDR   0x40010000U
 #define AHB1_BASE_ADDR   0x40020000U
 #define AHB2_BASE_ADDR   0x50000000U
-
-#define USB_OTG_FS_BASE_ADDR   (AHB2_BASE_ADDR + 0x0000U)
 
 /*
  * Y ahora debemos hacer lo mismo pero cada una de las posiciones de memoria de cada unode los
@@ -59,6 +75,9 @@
  * Solo lo vamos a hacer con los elementos que necesitamos en este ejercicio : RCC y GBIOx
  */
 
+/* Posiciones de memoria para perifericos del AHB2*/
+#define USB_OTG_FS_BASE_ADDR   (AHB2_BASE_ADDR + 0x0000U)
+
 /* Posiccciones de memoria para perifericos del AHB1
  * Observa que no esta completa */
 #define RCC_BASE_ADDR      (AHB1_BASE_ADDR + 0x3800U)
@@ -68,6 +87,11 @@
 #define GPIOC_BASE_ADDR    (AHB1_BASE_ADDR + 0x0800U)
 #define GPIOB_BASE_ADDR    (AHB1_BASE_ADDR + 0x0400U)
 #define GPIOA_BASE_ADDR    (AHB1_BASE_ADDR + 0x0000U)
+
+/* Posiciones de memoria para perifericos del APB2
+ * NOTA
+ * No los necesitamos en este ejercicio
+ */
 
 /* Macros genericos */
 #define ENABLE           1
@@ -95,46 +119,62 @@
  * NOTA : La posicion de memoria (offset) debe encajar perfectamentte con la posicion de memoria indicada
  * en la hoja de datos del equipo. Observe que los elementos reservedx tambien estan presentes alli
 * */
+
 typedef struct
 {
 	volatile uint32_t CR;          // Clock Control Register             ADDR_OFFSET : 0x00
 	volatile uint32_t PLLCFGR;     // PLL Configuration Register         ADDR_OFFSET : 0x04
 	volatile uint32_t CFGR;        // Clock Configuration Register       ADDR_OFFSET : 0x08
 	volatile uint32_t CIR;         // Clock Interrupt Register           ADDR_OFFSET : 0x0C
+
 	volatile uint32_t AHB1RSTR;    // AHB1 Peripheral Reset Register     ADDR_OFFSET : 0x10
 	volatile uint32_t AHB2RSTR;    // AHB2 Peripheral Reset Register     ADDR_OFFSET : 0x14
 	volatile uint32_t reserved0;   // Reserved                           ADDR_OFFSET : 0x18
 	volatile uint32_t reserved1;   // Reserved                           ADDR_OFFSET : 0x1C
+
 	volatile uint32_t APB1RSTR;    // APB1 Peripheral Reset Register     ADDR_OFFSET : 0x20
 	volatile uint32_t APB2RSTR;    // APB2 Peripheral Reset Register     ADDR_OFFSET : 0x24
 	volatile uint32_t reserved2;   // Reserved                           ADDR_OFFSET : 0x28
 	volatile uint32_t reserved3;   // Reserved                           ADDR_OFFSET : 0x2C
+
 	volatile uint32_t AHB1ENR;     // AHB1 Peripheral Clock Enable Register     ADDR_OFFSET : 0x30
 	volatile uint32_t AHB2ENR;     // AHB2 Peripheral Clock Enable Register     ADDR_OFFSET : 0x34
 	volatile uint32_t reserved4;   // Reserved                                  ADDR_OFFSET : 0x38
 	volatile uint32_t reserved5;   // Reserved                                  ADDR_OFFSET : 0x3C
+
 	volatile uint32_t APB1ENR;     // APB1 Peripheral Clock Enable Register     ADDR_OFFSET : 0x40
 	volatile uint32_t APB2ENR;     // APB2 Peripheral Clock Enable Register     ADDR_OFFSET : 0x44
 	volatile uint32_t reserved6;   // Reserved                                  ADDR_OFFSET : 0x48
 	volatile uint32_t reserved7;   // Reserved                                  ADDR_OFFSET : 0x4C
+
 	volatile uint32_t AHB1LPENR;   // AHB1 Clock Enable Low Power Register      ADDR_OFFSET : 0x50
 	volatile uint32_t AHB2LPENR;   // AHB2 Clock Enable Low Power Register      ADDR_OFFSET : 0x54
 	volatile uint32_t reserved8;   // Reserved                                  ADDR_OFFSET : 0x58
 	volatile uint32_t reserved9;   // Reserved                                  ADDR_OFFSET : 0x5
+
 	volatile uint32_t APB1LPENR;    // APB1 Clock Enable Low Power Register      ADDR_OFFSET : 0x60
 	volatile uint32_t APB2LPENR;    // APB2 Clock Enable Low Power Register      ADDR_OFFSET : 0x64
 	volatile uint32_t reserved10;   // Reserved                                  ADDR_OFFSET : 0x68
 	volatile uint32_t reserved11;   // Reserved                                  ADDR_OFFSET : 0x6C
+
 	volatile uint32_t BDCR;         // Backup Domain Control Register            ADDR_OFFSET : 0x70
 	volatile uint32_t CSR;          // Clock Control & Status Register           ADDR_OFFSET : 0x74
 	volatile uint32_t reserved12;   // Reserved                                  ADDR_OFFSET : 0x78
 	volatile uint32_t reserved13;   // Reserved                                  ADDR_OFFSET : 0x7C
+
 	volatile uint32_t SSCGR;        // Spread Spectrum Clock Generation Reg      ADDR_OFFSET : 0x80
 	volatile uint32_t PLLI2SCFGR;   // PLLI2S Configuration Register             ADDR_OFFSET : 0x84
 	volatile uint32_t reserved14;   // Reserved                                  ADDR_OFFSET : 0x88
 	volatile uint32_t DCKCFGR;      // Dedicated Clocks Configuration Reg        ADDR_OFFSET : 0x8C
-} RCC_RegDef_t;
+} RCC_RegDef_t ;
 
+
+/*
+ * Como se vio en la clase de introduccion a las estructuras, hacemis un puntero a RCC_RegDef_t que
+ * apunta a la posicion exacta del periferico RCC, de forma que cada miembro de la estructura coincide
+ * con cada uno de los SFR en la memoria del MCU. Esta accion la estamos haciendo en un MACRO, de forma
+ * que el nuevo elemento RCC queda disponible para cada clase .c que incluya este archivo
+ */
 #define RCC    ((RCC_RegDef_t *) RCC_BASE_ADDR)
 
 /* 6.3.9 RCC_AHB1ENR*/
@@ -148,6 +188,8 @@ typedef struct
 #define RCC_AHB1ENR_DMA1_EN          21
 #define RCC_AHB1ENR_DMA2_EN          22
 
+/* Fin de la descripcion de los elementos que componen el periferico RCC */
+
 
 
 /* Inicio de description de los elementos que componen el periferico GPIOx */
@@ -158,6 +200,7 @@ typedef struct
  * de cada uno de los registros que componen el dicho periferico, pero si es necesario comprendre que
  * hace cada registro, para poder cargar correctamente la configuracion
  */
+
 typedef struct
 {
 	volatile uint32_t MODER;          // Port Mode Register            ADDR_OFFSET : 0x00
@@ -170,15 +213,24 @@ typedef struct
 	volatile uint32_t LCKR;          // Port Configuration Lock Register           ADDR_OFFSET : 0x1C
 	volatile uint32_t AFRL;          // Alternate Function Low Register          ADDR_OFFSET : 0x20
 	volatile uint32_t AFRH;          // Alternate Function High Register            ADDR_OFFSET : 0x24
-} GPIOx_RegDef_t;
+} GPIOx_RegDef_t ;
 
-#define GPIOA      ((GPIOx_RegDef_t *) GPIOA_BASE_ADDR)
-#define GPIOB      ((GPIOx_RegDef_t *) GPIOB_BASE_ADDR)
-#define GPIOC      ((GPIOx_RegDef_t *) GPIOC_BASE_ADDR)
-#define GPIOD      ((GPIOx_RegDef_t *) GPIOD_BASE_ADDR)
-#define GPIOE      ((GPIOx_RegDef_t *) GPIOE_BASE_ADDR)
-#define GPIOH      ((GPIOx_RegDef_t *) GPIOH_BASE_ADDR)
+/* Al igual que con RCC, creamos un puntero a la estructura que define a GPIOx y debemos hacer
+ * que cada GPI0x quede ubicado exactamente sobre la posicion de memoria correcta
+ * Debido a que son varios perofericos GPIOx, es necesario hacer la definicion para cada uno
+ *
+ * NOTA : Tener cuidado que cada elemento coincida con su respectiva direccion base
+ */
 
+#define GPIOA      ((GPIOx_Reg_Def_t *) GPIOA_BASE_ADDR)
+#define GPIOB      ((GPIOx_Reg_Def_t *) GPIOB_BASE_ADDR)
+#define GPIOC      ((GPIOx_Reg_Def_t *) GPIOC_BASE_ADDR)
+#define GPIOD      ((GPIOx_Reg_Def_t *) GPIOD_BASE_ADDR)
+#define GPIOE      ((GPIOx_Reg_Def_t *) GPIOE_BASE_ADDR)
+#define GPIOH      ((GPIOx_Reg_Def_t *) GPIOH_BASE_ADDR)
+
+/* Valores estandar para las configuraciones */
+/* 8.4.1 GPIOx_MODER (dos bits po cada PIN) */
 #define GPIO_MODE_IN      O
 #define GPIO_MODE_OUT     1
 #define GPIO_MODE_ALTFN   2
@@ -236,5 +288,5 @@ typedef struct
 #define AF14   0b1110
 #define AF15   0b1111
 
+#endif
 
-#endif /* STM32F411XX_HAL_H_ */

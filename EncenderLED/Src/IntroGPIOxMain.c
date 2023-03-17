@@ -46,8 +46,8 @@
 
 
 #include <stdint.h>
-#include "stm32f411xx_hal.h"
 
+#include "stm32f411xx_hal.h"
 #include "GPIOxDriver.h"
 
 // Funcion principal del programa
@@ -55,6 +55,13 @@
 
 int main(void)
 {
+	//Configuracion PC13
+	//Configuracion initial del MCU
+	//RCC->AHB1ENR &= ~(1<<0);    //Borrar la posicion cual sea del AHB1ENR
+	//RCC->AHB1ENR |= 1<<0 ;      //Activar el ciclo del reloj en AHB1ENR
+
+
+
 	// Definimos el handler para el PIN que deseamos configurar
 	GPIO_Handler_t handlerUserLedPin = {0};
 

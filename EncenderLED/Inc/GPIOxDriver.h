@@ -21,8 +21,8 @@
  * debido manejo y control del periferico GPIOx (funciones del controladror)
 */
 
-#ifndef GPIOXDRIVER_H_
-#define GPIOXDRIVER_H_
+#ifndef INC_GPIOXDRIVER_H_
+#define INC_GPIOXDRIVER_H_
 
 /* Incluyendo este archivo estamos incluyendo tambien el correspondiente al GPIOx */
 #include "stm32f411xx_hal.h"
@@ -50,7 +50,7 @@ typedef struct
 
 /* Definicion de las cabeceras de las funciones del GPIOxDriver */
 void GPIO_Config (GPIO_Handler_t *pGPIOHanlder);
-void GPIO_WritePin (GPIO_Handler_t *pPinHandler,uint8_t newState);
+void GPIO_WritePin (GPIO_Handler_t *pPinHandler,unint8_t newState);
 uint32_t GPIO_ReadPin (GPIO_Handler_t *pPinHandler);
 
 #endif
