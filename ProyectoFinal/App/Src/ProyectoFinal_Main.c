@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 #include <math.h>
 
 #include <stm32f4xx.h>
@@ -25,33 +26,59 @@
 
 spa_data spa;  //declare the SPA structure
 int result;
-float min, sec;
 
 // Definicion de los handlers necesarios --------------------------------------------------------------------
 
 
 //Elementos para el Blinky
 
-GPIO_Handler_t handlerBlinkyPin        = {0};
+GPIO_Handler_t handlerPinLED2        = {0};
+GPIO_Handler_t handlerBoardPin        = {0};
 BasicTimer_Handler_t handlerBlinkyTimer = {0};
 
-GPIO_Handler_t handlerBlinkyBoardPin        = {0};
-BasicTimer_Handler_t handlerBlinkyBoardTimer = {0};
-
-
+//UserButton
 GPIO_Handler_t handlerUserButton       = {0};
 EXTI_Config_t handlerUserButtonExti    = {0};
 
 
-
-
-//Elementos para hacer la comunicacion serial ---------------------------------------------------------------
+//Elementos para acer la comunicacion serial ---------------------------------------------------------------
 
 GPIO_Handler_t handlerPinTX = {0};
 GPIO_Handler_t handlerPinRX = {0};
 USART_Handler_t usart2Comm = {0};
+
+//GPIO_Handler_t handlerPinTXGPS = {0}; //No necesitamos Transmitir al GPS
+GPIO_Handler_t handlerPinRXGPS = {0};
+USART_Handler_t usart6Comm = {0};
+
 uint8_t sendMsg = 0;
 uint8_t usart2DataReceived = 0 ;
+uint8_t usart6DataReceived = 0 ;
+
+// Elementos para sacar la informacion del GPS
+
+int GuardarMensaje = 0;
+int MensajeCorrecto=0;
+int MensajeCompleto=0;
+
+int i=0;
+int n=0;
+
+char CodigoMsg[6]={0};
+
+int Zenit=0;
+int Azimut=0;
+
+char infoSPA[20]="hh,mm,ss,ll,d,LLL,D";
+int hour=00;
+int min=00;
+int sec=00;
+int Lat=00;
+char dirLat ={0};
+int Longi=00;
+char dirLong={0};
+
+
 
 
 
@@ -60,106 +87,239 @@ uint8_t usart2DataReceived = 0 ;
 //Servo1
 GPIO_Handler_t handlerPin1PwmChannel  = {0};
 PWM_Handler_t handlerSignal1PWM      = {0};
-uint16_t duttyValue1=1600;
+uint16_t duttyValue1=800;
 
 //Servo2
 GPIO_Handler_t handlerPin2PwmChannel  = {0};
 PWM_Handler_t handlerSignal2PWM      = {0};
-uint16_t duttyValue2=500;
+uint16_t duttyValue2=1600;
 
+uint16_t newDutty=0;
 
-
-char bufferMsg[64] = {0};
+char bufferGPS[128] = {0};
+char bufferMsg[256] = {0};
 
 
 //Definicion de las cabeceras de las funciones del main
 void initSystem(void);
+void printMsgGPS(void);
 int16_t convertToDutty1 (double angle);
+int16_t convertToDutty2 (double angle);
+void movimientoServo();
 
 
 int main (void)
 {
+
 	//Inicialisamos todos los elementos del sistema
 	initSystem();
-
-
 
 
 	//Loop forever
 	while (1)
 	{
-		//Verificando el PWM
 
-				if (usart2DataReceived != '\0')
+		// Colocamos el mensaje enviado por el GPS
+		printMsgGPS();
+
+		if (usart2DataReceived != '\0')
+			{
+				if (usart2DataReceived == 'M')
 				{
-					if (usart2DataReceived == 'M')
-					{
-						//enter required input values into SPA structure
-						spa.year          = 2003;
-						spa.month         = 10;
-						spa.day           = 17;
-						spa.hour          = 12;
-						spa.minute        = 30;
-						spa.second        = 30;
-						spa.timezone      = -7.0;
-						spa.delta_ut1     = 0;
-						spa.delta_t       = 67;
-						spa.longitude     = -105.1786;
-						spa.latitude      = 39.742476;
-						spa.elevation     = 1830.14;
-						spa.pressure      = 820;
-						spa.temperature   = 11;
-						spa.slope         = 30;
-						spa.azm_rotation  = -10;
-						spa.atmos_refract = 0.5667;
-						spa.function      = SPA_ALL;
-
-						//call the SPA calculate function and pass the SPA structure
-						result = spa_calculate(&spa);
-
-						if (result == 0)  //check for SPA errors
+						// SACAMOS LA INFORMACION DEL GPS ---------------------------------------------------
+						while (MensajeCorrecto!=1)
+						{
+							while (MensajeCompleto!=1)
 							{
-								//display the results inside the SPA structure (zenith and azimuth)
-								sprintf(bufferMsg, "Zenith:       %02d \n", (int)(spa.zenith));
-								writeMsg(&usart2Comm, bufferMsg);
 
-								if (convertToDutty1(spa.zenith)>450)
+								if (usart6DataReceived != '\0')
 								{
-									duttyValue1= convertToDutty1(spa.zenith);
-								}
-								else
-								{
-									duttyValue1= 450;
+									if (usart6DataReceived == '$')
+									{
+									GuardarMensaje=1;
+									//usart6DataReceived ='\0';
+									}
 								}
 
-								updateDuttyCycle(&handlerSignal1PWM, duttyValue1);
 
-								sprintf(bufferMsg, "Dutty asociado al Zenith:       %02d \n", (int)(duttyValue1));
-								writeMsg(&usart2Comm, bufferMsg);
+								if (usart6DataReceived != '\0')
+									{
+									if( (GuardarMensaje==1) & (usart6DataReceived != '\n'))
+									{
+										bufferGPS[i]=usart6DataReceived;
+										i++;
+										usart6DataReceived ='\0';
+									}
+								}
 
 
+								if (usart6DataReceived != '\0')
+								{
+									if((GuardarMensaje==1) & (usart6DataReceived == '\n'))
+									{
+											bufferGPS[i]='\0';
 
-								sprintf(bufferMsg, "Azimuth:       %02d \n", (int)(spa.azimuth));
-								writeMsg(&usart2Comm, bufferMsg);
+											MensajeCompleto=1;
+											GuardarMensaje=0;
+											i=0;
+											usart6DataReceived = '\0';
+									}
+								}
+
 							}
 
-						else
+							writeChar(&usart2Comm,'\n');
+
+							for (n = 0 ; n < 5; n++)
 							{
-								sprintf(bufferMsg, "SPA Error Code:%d\n", result);
+								CodigoMsg[n]=bufferGPS[n+1];
+								sprintf(bufferMsg, "Char:%c \n", CodigoMsg[n]);
 								writeMsg(&usart2Comm, bufferMsg);
 							}
+							CodigoMsg[5]='\0';
 
-						//Down
-						duttyValue1 -= 10 ;
-						updateDuttyCycle(&handlerSignal1PWM, duttyValue1);
-					}
 
-					//Cambiamos el estado del elemento que controla la entrada
-					usart2DataReceived = '\0';
+							sprintf(bufferMsg, "Codigo Mensaje: %s\n", CodigoMsg);
+							writeMsg(&usart2Comm, bufferMsg);
+
+							if (strcmp(CodigoMsg,"GPRMC")==0)
+							//if ( (CodigoMsg[1]=='G') & (CodigoMsg[2]=='P') &(CodigoMsg[3]=='R') & (CodigoMsg[4]=='M') & (CodigoMsg[5]=='C') )
+							{
+								MensajeCorrecto=1;
+
+								sprintf(bufferMsg, "Mensaje correcto !!\n");
+								writeMsg(&usart2Comm, bufferMsg);
+
+								sprintf(bufferMsg, "Buffer GPS: %s\n", bufferGPS);
+								writeMsg(&usart2Comm, bufferMsg);
+
+
+
+								//Cargamos la informacion del GPS en el arreglo infoSPA
+								// infoSPA=hh,mm,ss,latlat,N,longlonglong,E
+								//hora
+								infoSPA[0]=bufferGPS[7];
+								infoSPA[1]=bufferGPS[8];
+								infoSPA[2]=':';
+								//minutos
+								infoSPA[3]=bufferGPS[9];
+								infoSPA[4]=bufferGPS[10];
+								infoSPA[5]=':';
+								//segundo
+								infoSPA[6]=bufferGPS[11];
+								infoSPA[7]=bufferGPS[12];
+								infoSPA[8]=':';
+								//latitude
+								infoSPA[9]=bufferGPS[19];
+								infoSPA[10]=bufferGPS[20];
+								infoSPA[11]=':';
+								//Norte o Sur
+								infoSPA[12]=bufferGPS[30];
+								infoSPA[13]=':';
+								//longitude
+								infoSPA[14]=bufferGPS[32];
+								infoSPA[15]=bufferGPS[33];
+								infoSPA[16]=bufferGPS[34];
+								infoSPA[17]=':';
+								//Oeste o Este
+								infoSPA[18]=bufferGPS[44];
+								infoSPA[19]='\0';
+
+								writeChar(&usart2Comm,'\n');
+
+
+								sprintf(bufferMsg, "Info SPA :  %s\n", infoSPA);
+								writeMsg(&usart2Comm, bufferMsg);
+
+
+								//infoSPA[20]="03:41:56:06:N:075:W\0"
+								sscanf(infoSPA, "%i:%i:%i:%i:%c:%i:%c", &hour,&min,&sec,&Lat,&dirLat,&Longi,&dirLong);
+
+								//Calculo de SPA
+							    //enter required input values into SPA structure
+							    spa.year          = 2023;
+							    spa.month         = 06;
+							    spa.day           = 02;
+							    spa.hour          = hour;
+							    spa.minute        = min;
+							    spa.second        = sec;
+							    spa.timezone      = -5.0;
+							    spa.delta_ut1     = 0;
+							    spa.delta_t       = 67;
+
+							    if (dirLong=='E')
+							    {
+							    	spa.longitude     = Longi; //
+							    }
+							    else
+							    {
+							    	spa.longitude     = -1*Longi; //
+							    }
+
+							    if (dirLat=='N')
+							    {
+							    	spa.latitude     = Lat;
+							    }
+							    else
+							    {
+							    	spa.latitude    = -Lat;
+							    }
+
+							    spa.elevation     = 1830.14;
+							    spa.pressure      = 820;
+							    spa.temperature   = 11;
+							    spa.slope         = 30;
+							    spa.azm_rotation  = -10;
+							    spa.atmos_refract = 0.5667;
+							    spa.function      = SPA_ALL;
+
+								sprintf(bufferMsg, "Hora:%02d \n", (int)spa.hour);
+								writeMsg(&usart2Comm, bufferMsg);
+								sprintf(bufferMsg, "Minutos:%02d \n", (int)spa.minute);
+								writeMsg(&usart2Comm, bufferMsg);
+								sprintf(bufferMsg, "Segundos:%02d \n", (int)spa.second);
+								writeMsg(&usart2Comm, bufferMsg);
+								sprintf(bufferMsg, "Latitude:%02d \n", (int)spa.latitude);
+								writeMsg(&usart2Comm, bufferMsg);
+								sprintf(bufferMsg, "Dir Latitude:%c \n", dirLat);
+								writeMsg(&usart2Comm, bufferMsg);
+
+								sprintf(bufferMsg, "Longitude:%02d \n", (int)spa.longitude);
+								writeMsg(&usart2Comm, bufferMsg);
+								sprintf(bufferMsg, "Dir Longitude:%c \n", dirLong);
+								writeMsg(&usart2Comm, bufferMsg);
+
+
+							    //call the SPA calculate function and pass the SPA structure
+							    result = spa_calculate(&spa);
+
+
+
+								sprintf(bufferMsg, "Zenit indicado por el GPS:%02d \n", (int)spa.zenith);
+								writeMsg(&usart2Comm, bufferMsg);
+								sprintf(bufferMsg, "Azimut indicado por el GPS:%02d \n", (int)spa.azimuth);
+								writeMsg(&usart2Comm, bufferMsg);
+
+								//Movemos los servos
+								movimientoServo((int)spa.zenith,(int)spa.azimuth);
+							}
+
+							else
+							{
+								sprintf(bufferMsg, "Mensaje incorrecto !!\n");
+								writeMsg(&usart2Comm, bufferMsg);
+								MensajeCompleto=0;
+
+								//LimpiarBufferGPS
+							}
+						}
+						MensajeCorrecto=0;
+
 
 				}
-
+			}
 	}
+
 
 
 
@@ -170,36 +330,40 @@ int main (void)
 void initSystem(void)
 {
 
-	//Configuracion el pin para el LED_Blinky
-	handlerBlinkyPin.pGPIOx                             = GPIOA;
-	handlerBlinkyPin.GPIO_PinConfig.GPIO_PinNumber      = PIN_5;
-	handlerBlinkyPin.GPIO_PinConfig.GPIO_PinMode        = GPIO_MODE_OUT;
-	handlerBlinkyPin.GPIO_PinConfig.GPIO_PinOPType      = GPIO_OTYPE_PUSHPULL;
-	handlerBlinkyPin.GPIO_PinConfig.GPIO_PinPuPdControl = GPIO_PUPDR_NOTHING;
-	handlerBlinkyPin.GPIO_PinConfig.GPIO_PinSpeed       = GPIO_OSPEED_FAST;
+	//Configuracion del pin para encender el LED2
+	handlerPinLED2.pGPIOx                             = GPIOA;
+	handlerPinLED2.GPIO_PinConfig.GPIO_PinNumber      = PIN_5;
+	handlerPinLED2.GPIO_PinConfig.GPIO_PinMode        = GPIO_MODE_OUT;
+	handlerPinLED2.GPIO_PinConfig.GPIO_PinOPType      = GPIO_OTYPE_PUSHPULL;
+	handlerPinLED2.GPIO_PinConfig.GPIO_PinPuPdControl = GPIO_PUPDR_NOTHING;
+	handlerPinLED2.GPIO_PinConfig.GPIO_PinSpeed       = GPIO_OSPEED_FAST;
 	// Cargamos la configuración del pinA5
-	GPIO_Config(&handlerBlinkyPin);
+	GPIO_Config(&handlerPinLED2);
 
-
-	//Configuracion el pin para el LEDBlinky on la board
-	handlerBlinkyBoardPin.pGPIOx                             = GPIOC;
-	handlerBlinkyBoardPin.GPIO_PinConfig.GPIO_PinNumber      = PIN_8;
-	handlerBlinkyBoardPin.GPIO_PinConfig.GPIO_PinMode        = GPIO_MODE_OUT;
-	handlerBlinkyBoardPin.GPIO_PinConfig.GPIO_PinOPType      = GPIO_OTYPE_PUSHPULL;
-	handlerBlinkyBoardPin.GPIO_PinConfig.GPIO_PinPuPdControl = GPIO_PUPDR_NOTHING;
-	handlerBlinkyBoardPin.GPIO_PinConfig.GPIO_PinSpeed       = GPIO_OSPEED_FAST;
-	// Cargamos la configuración del pinA5
-	GPIO_Config(&handlerBlinkyBoardPin);
-
-
-	//Configurando el Timer2 para que funcione el blinky
+	//Configurando el Timer2 para el blinky
 	handlerBlinkyTimer.ptrTIMx 								= TIM2;
 	handlerBlinkyTimer.TIMx_Config.TIMx_mode				= BTIMER_MODE_UP;
 	handlerBlinkyTimer.TIMx_Config.TIMx_speed				= BTIMER_SPEED_100us;
-	handlerBlinkyTimer.TIMx_Config.TIMx_period				= 2500;
+	handlerBlinkyTimer.TIMx_Config.TIMx_period				= 5000;
 	handlerBlinkyTimer.TIMx_Config.TIMx_interruptEnable     = BTIMER_INTERRUPT_ENABLE;
 	// Cargamos la configuración del timer
 	BasicTimer_Config(&handlerBlinkyTimer);
+
+
+	//Configuracion del pin para encender el LED on la board cuando comunicamos con el GPS
+	handlerBoardPin.pGPIOx                             = GPIOC;
+	handlerBoardPin.GPIO_PinConfig.GPIO_PinNumber      = PIN_8;
+	handlerBoardPin.GPIO_PinConfig.GPIO_PinMode        = GPIO_MODE_OUT;
+	handlerBoardPin.GPIO_PinConfig.GPIO_PinOPType      = GPIO_OTYPE_PUSHPULL;
+	handlerBoardPin.GPIO_PinConfig.GPIO_PinPuPdControl = GPIO_PUPDR_NOTHING;
+	handlerBoardPin.GPIO_PinConfig.GPIO_PinSpeed       = GPIO_OSPEED_FAST;
+	// Cargamos la configuración del pinA5
+	GPIO_Config(&handlerBoardPin);
+
+
+
+
+
 
 	//EL pin UserButton es una entrada simple que entragara la interrupcion EXTI-13
 	//Observar que el pin seleccionado es el PIN13, por lo tanto el callback
@@ -215,7 +379,9 @@ void initSystem(void)
 	handlerUserButtonExti.edgeType          =EXTERNAL_INTERRUPT_RISING_EDGE;
 	extInt_Config(&handlerUserButtonExti);
 
-	// Configuracion de la comunicacion serial
+
+
+	// Configuracion de la comunicacion serial CoolTerm
 	handlerPinTX.pGPIOx 							= GPIOA;
 	handlerPinTX.GPIO_PinConfig.GPIO_PinNumber 		= PIN_2;
 	handlerPinTX.GPIO_PinConfig.GPIO_PinMode		= GPIO_MODE_ALTFN;
@@ -238,6 +404,34 @@ void initSystem(void)
 //usart2Comm.USART_Config.USART_enableIntTX
 	//Cargando la configuracion del usart2
 	USART_Config(&usart2Comm);
+
+
+
+
+	// Configuracion de la comunicacion serial GPS
+
+	/*handlerPinTXGPS.pGPIOx 							= GPIOA;
+	handlerPinTXGPS.GPIO_PinConfig.GPIO_PinNumber 		= PIN_11;
+	handlerPinTXGPS.GPIO_PinConfig.GPIO_PinMode			= GPIO_MODE_ALTFN;
+	handlerPinTXGPS.GPIO_PinConfig.GPIO_PinAltFunMode 	= AF8;
+	GPIO_Config(&handlerPinTXGPS);
+	*/
+
+	handlerPinRXGPS.pGPIOx 								= GPIOA;
+	handlerPinRXGPS.GPIO_PinConfig.GPIO_PinNumber 		= PIN_12;
+	handlerPinRXGPS.GPIO_PinConfig.GPIO_PinMode			= GPIO_MODE_ALTFN;
+	handlerPinRXGPS.GPIO_PinConfig.GPIO_PinAltFunMode 	= AF8;
+	GPIO_Config(&handlerPinRXGPS);
+
+	usart6Comm.ptrUSARTx                        = USART6;
+	usart6Comm.USART_Config.USART_baudrate 		= USART_BAUDRATE_9600;
+	usart6Comm.USART_Config.USART_datasize 		= USART_DATASIZE_8BIT;
+	usart6Comm.USART_Config.USART_parity 		= USART_PARITY_NONE;
+	usart6Comm.USART_Config.USART_mode 			= USART_MODE_RXTX;
+	usart6Comm.USART_Config.USART_stopbits 		= USART_STOPBIT_1;
+	usart6Comm.USART_Config.USART_interrupt     = 0;
+	//Cargando la configuracion del usart6
+	USART_Config(&usart6Comm);
 
 
 	// PWM --------------------------------------------------------------------------------------------------
@@ -266,10 +460,11 @@ void initSystem(void)
 	enableOutput(&handlerSignal1PWM);
 	startPwmSignal(&handlerSignal1PWM);
 
-	/*// SERVO 2 ----------------------------------------------------------------------------------------------
+
+	// SERVO 2 ----------------------------------------------------------------------------------------------
 	// Configuracion del pin para el servo2
 	handlerPin2PwmChannel.pGPIOx 								= GPIOA;
-	handlerPin2PwmChannel.GPIO_PinConfig.GPIO_PinNumber 		= PIN_8;
+	handlerPin2PwmChannel.GPIO_PinConfig.GPIO_PinNumber 		= PIN_6;
 	handlerPin2PwmChannel.GPIO_PinConfig.GPIO_PinMode			= GPIO_MODE_ALTFN;
 	handlerPin2PwmChannel.GPIO_PinConfig.GPIO_PinOPType			= GPIO_OTYPE_PUSHPULL;
 	handlerPin2PwmChannel.GPIO_PinConfig.GPIO_PinPuPdControl	= GPIO_PUPDR_NOTHING;
@@ -278,33 +473,135 @@ void initSystem(void)
 	GPIO_Config(&handlerPin2PwmChannel);
 
 	// Configuracion del timer para el servo2
-	handlerSignal1PWM.ptrTIMx 									= TIM3;
-	handlerSignal1PWM.config.channel							= PWM_CHANNEL_1;
-	handlerSignal1PWM.config.duttyCicle							= duttyValue2;
-	handlerSignal1PWM.config.periodo							= 20000; // 20ms 5OHz
-	handlerSignal1PWM.config.prescaler					    	= 16;
+	handlerSignal2PWM.ptrTIMx 									= TIM3;
+	handlerSignal2PWM.config.channel							= PWM_CHANNEL_1;
+	handlerSignal2PWM.config.duttyCicle							= duttyValue2;
+	handlerSignal2PWM.config.periodo							= 20000; // 20ms 5OHz
+	handlerSignal2PWM.config.prescaler					    	= 16;
 	// Cargamos la configuración del timer
 	pwm_Config(&handlerSignal2PWM);
 
 	//Activamos la senal
 	enableOutput(&handlerSignal2PWM);
 	startPwmSignal(&handlerSignal2PWM);
-	*/
 
+
+
+}
+
+
+void printMsgGPS (void)
+{
+	if (usart6DataReceived != '\0')
+	{
+		writeChar(&usart2Comm, usart6DataReceived);
+		usart6DataReceived = '\0';
+	}
+}
+
+void movimientoServo(int Z, int A)
+{
+				//colocamos el angulo de zenith
+				sprintf(bufferMsg, "Zenit:       %02d \n", (int)(Z));
+				writeMsg(&usart2Comm, bufferMsg);
+
+				//calculamos el dutty correspondiente
+				duttyValue1=convertToDutty1(Z);
+				if (duttyValue1<660)
+				{
+					duttyValue1=660;
+				}
+				if (duttyValue1>2200)
+				{
+					duttyValue1=2200;
+				}
+
+				//colocamos el nuevo valor de dutty asociado al zenith
+				sprintf(bufferMsg, "Dutty asociado al Zenith:       %02d \n", (int)(duttyValue1));
+				writeMsg(&usart2Comm, bufferMsg);
+
+				//cargamos el nuevo valor de dutty
+				updateDuttyCycle(&handlerSignal1PWM, duttyValue1);
+
+
+				//AZIMUTH----------------------------------------------------
+
+				Azimut =A;
+
+				//colocamos el angulo de azimuth
+				sprintf(bufferMsg, "Azimuth:       %02d \n", (int)(Azimut));
+				writeMsg(&usart2Comm, bufferMsg);
+
+				//calculamos el dutty correspondiente
+				duttyValue2=convertToDutty2(Azimut);
+				if (duttyValue2<840)
+				{
+					duttyValue2=840;
+				}
+				if (duttyValue2>2180)
+				{
+					duttyValue2=2180;
+				}
+
+				//colocamos el nuevo valor de dutty asociado al azimuth
+				sprintf(bufferMsg, "Dutty asociado al Azimuth:       %02d \n", (int)(duttyValue2));
+				writeMsg(&usart2Comm, bufferMsg);
+
+				//cargamos el nuevo valor de dutty
+				updateDuttyCycle(&handlerSignal2PWM, duttyValue2);
 }
 
 
 int16_t convertToDutty1 (double angle)
 {
-	return 1600-(840*angle/90);
+	return 660+(1540*angle/180);
 }
+
+
+int16_t convertToDutty2 (double angle)
+{
+	if (angle>270 || angle<90)
+	{
+		sprintf(bufferMsg, "Ubicar el equipo al Norte ! \n");
+		writeMsg(&usart2Comm, bufferMsg);
+
+		if (angle<90)
+		{
+			newDutty= 1600-(angle*760/90);
+		}
+		if (angle>270)
+		{
+			angle=360-angle;
+			newDutty= 1600+(angle*580/90);
+		}
+	}
+
+	if (angle<270 && angle>90)
+	{
+		sprintf(bufferMsg, "Ubicar el equipo al Sur ! \n");
+		writeMsg(&usart2Comm, bufferMsg);
+
+		if (angle<180)
+		{
+			angle=180-angle;
+			newDutty= 1600+(angle*580/90);
+		}
+		if (angle>180)
+		{
+			angle=angle-180;
+			newDutty= 1600-(angle*760/90);
+		}
+	}
+
+	return newDutty;
+}
+
 
 //Callback del Timer2 - Hacemos un blinky
 void BasicTimer2_Callback(void)
 {
-	GPIOxTooglePin(&handlerBlinkyPin);
-	GPIOxTooglePin(&handlerBlinkyBoardPin);
-	sendMsg++;
+	GPIOxTooglePin(&handlerBoardPin);
+	GPIOxTooglePin(&handlerPinLED2);
 }
 
 //Callback del userButton --> hacer algo
@@ -318,6 +615,12 @@ void callback_extInt13(void)
 void usart2Rx_Callback (void)
 {
 	usart2DataReceived =getRxData();
+}
+
+// por el puerto USART6
+void usart6Rx_Callback (void)
+{
+	usart6DataReceived =getRxData();
 }
 
 
